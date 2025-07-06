@@ -3,7 +3,44 @@ import matplotlib.pyplot as plt
 import heapq
 from matplotlib.colors import ListedColormap
 import time
+import bisect
 
+
+class PriorityQueue:
+    def __init__(self):
+        self.elements = []
+        self.entry_finder = {}  # 用于快速查找和替换节点
+
+    def push(self, node):
+        """添加或更新节点"""
+        if node.pos in self.entry_finder:
+            existing_node = self.entry_finder[node.pos]
+            if node.g < existing_node.g:  # 只有新路径更优时才更新
+                # 标记旧节点为已移除
+                existing_node.removed = True
+                # 添加新节点
+                heapq.heappush(self.elements, node)
+                self.entry_finder[node.pos] = node
+        else:
+            heapq.heappush(self.elements, node)
+            self.entry_finder[node.pos] = node
+
+    def pop(self):
+        """弹出最小代价节点，跳过已标记移除的节点"""
+        while self.elements:
+            node = heapq.heappop(self.elements)
+            if not hasattr(node, 'removed') or not node.removed:
+                del self.entry_finder[node.pos]
+                return node
+        raise IndexError("pop from empty priority queue")
+
+    def __contains__(self, pos):
+        """检查位置是否在队列中"""
+        return pos in self.entry_finder
+
+    def __len__(self):
+        """返回队列中有效节点的数量"""
+        return len(self.entry_finder)
 
 class DEMGenerator:
     def __init__(self, shape, *args):
@@ -69,14 +106,14 @@ class Astar():
         self.start = s
         self.goal  = e
         self.plt = False
+        self.nb = np.array([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]])
 
         self.raws = self.map.shape[0]
         self.columes = self.map.shape[1]
 
 
     def neighbors(self, node):
-        nb = np.array([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]])
-        return [self.Node((node.pos + p)) for p in nb]
+        return [self.Node((node.pos + p)) for p in self.nb]
 
     def cost(self, pos):
         g = 0.0
@@ -90,26 +127,30 @@ class Astar():
         pos = node.pos
 
         is_in_map = pos[0] >= 0 and pos[0] < self.raws and pos[1] >= 0 and pos[1] < self.columes
-        if is_in_map == False:
-            return False
         return is_in_map and self.map[pos[0]][pos[1]] + self.safe_height < pos[2]
 
     class Node():
         def __init__(self, pos):
-            self.pos = pos
-            self.g = None
-            self.h = None
-            self.cost = None
+            self.pos = tuple(pos)
+            self.g = float('inf')
+            self.h = 0
+            self.cost = float('inf')
             self.parent = None
 
         def __lt__(self, other):
             return self.cost < other.cost
 
         def __eq__(self, other):
-            return self.pos[0] == other.pos[0] and self.pos[1] == other.pos[1] and self.pos[2] == other.pos[2]
+            return self.pos == other.pos
 
         def __hash__(self):
-            return hash((self.pos[0], self.pos[1], self.pos[2]))
+            return hash(self.pos)
+
+        # def __eq__(self, other):
+        #     return self.pos[0] == other.pos[0] and self.pos[1] == other.pos[1] and self.pos[2] == other.pos[2]
+
+        # def __hash__(self):
+        #     return hash((self.pos[0], self.pos[1], self.pos[2]))
 
     def plot_path(self, path):
         fig = plt.figure(figsize=(10, 8))
@@ -143,12 +184,12 @@ class Astar():
         end_node   = self.Node(self.goal)
         start_node.cost = self.cost(start_node.pos)
 
-        open_set  = []
+        open_set  = PriorityQueue()
         close_set = set()
-        heapq.heappush(open_set, start_node)
+        open_set.push(start_node)
 
         while open_set:
-            cur_node = heapq.heappop(open_set)
+            cur_node = open_set.pop()
 
             #到终点后回溯返回路径
             if cur_node == end_node:
@@ -164,15 +205,15 @@ class Astar():
                 return path[::-1]
 
             # 放入闭集
-            close_set.add(cur_node)
+            close_set.add(cur_node.pos)
             for neighbor in self.neighbors(cur_node):
-                if self.accessible(neighbor) == False or neighbor in close_set:
+                if self.accessible(neighbor) == False or neighbor.pos in close_set:
                     continue
 
-                neighbor.cost = self.cost(neighbor.pos)
+                neighbor.cost = cur_node.cost + 1
                 neighbor.parent = cur_node
-                if neighbor not in open_set:
-                    heapq.heappush(open_set, neighbor)
+                open_set.push(neighbor)  # 自动处理替换逻辑
+
         print("*****NO PATH!!!*****")
         return []
 
@@ -184,9 +225,9 @@ if __name__ == "__main__":
                        (80, 80, 80, 15),
                        (80, 40, 60, 20))
     map = dem.gemDEM()
-    # dem.plt_DEM()
+    dem.plt_DEM()
 
-    astar = Astar(map, (0,0,50), (10,10,100))
+    astar = Astar(map, (6,20,50), (40,90,100))
 
     path = astar.search(True)
     # print(path)
