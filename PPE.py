@@ -5,6 +5,8 @@ from matplotlib.colors import ListedColormap
 import time
 import bisect
 
+NORM_I_DIST  = 1
+NORM_II_DIST = 2
 
 class PriorityQueue:
     def __init__(self):
@@ -66,7 +68,7 @@ class DEMGenerator:
         for desc in self.peak_desc:
             self.Z  += self.mountain(self.X, self.Y, desc[0], desc[1], desc[2], desc[3])
             # 添加一些随机噪声使地形更自然
-            self.Z += np.random.normal(5, 0.2, self.Z.shape)
+            self.Z += np.random.normal(7, 0.2, self.Z.shape)
         return self.Z
 
     def plt_DEM(self):
@@ -100,13 +102,14 @@ class DEMGenerator:
 
 
 class Astar():
-    def __init__(self, map, s, e):
-        self.safe_height = 10.0 # 安全高度
+    def __init__(self, map, s, e, methord = NORM_II_DIST):
+        self.safe_height = 15.0 # 安全高度
         self.map = map
         self.start = s
         self.goal  = e
         self.plt = False
         self.nb = np.array([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]])
+        self.dis_methord = methord
 
         self.raws = self.map.shape[0]
         self.columes = self.map.shape[1]
@@ -116,11 +119,12 @@ class Astar():
         return [self.Node((node.pos + p)) for p in self.nb]
 
     def cost(self, pos):
-        g = 0.0
-        h = 0.0
-        for i in range(len(pos)):
-            g += abs(pos[i] - self.start[i])
-            h += abs(pos[i] - self.goal[i])
+        if self.dis_methord == NORM_I_DIST:
+            g = abs(pos[0] - self.start[0]) + abs(pos[1] - self.start[1]) + abs(pos[2] - self.start[2])
+            h = abs(pos[0] - self.goal[0]) + abs(pos[1] - self.goal[1]) + abs(pos[2] - self.goal[2])
+        else:
+            g = np.sqrt((pos[0] - self.start[0])**2 + (pos[1] - self.start[1])**2 + (pos[2] - self.start[2])**2)
+            h = np.sqrt((pos[0] - self.goal[0])**2 + (pos[1] - self.goal[1])**2 + (pos[2] - self.goal[2])**2)
         return g + h
 
     def accessible(self, node):
@@ -264,7 +268,7 @@ class Astar():
                     cur_node = cur_node.parent
                     path.append(cur_node)
 
-                print("*****PATH ALREADY FOUND!!!*****")
+                print("*****PATH ALREADY FOUND!!! setps={}*****".format(len(path)))
                 if visualize:
                     self.plot_path_with_profile(path)
                 return path[::-1]
@@ -275,7 +279,7 @@ class Astar():
                 if self.accessible(neighbor) == False or neighbor.pos in close_set:
                     continue
 
-                neighbor.cost = cur_node.cost + 1
+                neighbor.cost = self.cost(neighbor.pos)
                 neighbor.parent = cur_node
                 open_set.push(neighbor)  # 自动处理替换逻辑
 
@@ -290,9 +294,9 @@ if __name__ == "__main__":
                        (80, 80, 80, 15),
                        (80, 40, 60, 20))
     map = dem.gemDEM()
-    dem.plt_DEM()
+    # dem.plt_DEM()
 
-    astar = Astar(map, (6,20,50), (40,90,100))
+    astar = Astar(map, (20,0,50), (60,90,100), NORM_II_DIST)
 
     path = astar.search(True)
     # print(path)
