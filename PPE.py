@@ -179,6 +179,71 @@ class Astar():
         ax.legend()
         plt.show()
 
+    def plot_path_with_profile(self, path):
+        """绘制3D路径和高度剖面对比图"""
+        fig = plt.figure(figsize=(16, 6))
+
+        # 3D路径图
+        ax1 = fig.add_subplot(121, projection='3d')
+        X, Y = np.meshgrid(np.arange(self.map.shape[0]), np.arange(self.map.shape[1]))
+        ax1.plot_surface(X, Y, self.map, cmap='terrain', alpha=0.5)
+
+        if path:
+            path_x = [node.pos[0] for node in path]
+            path_y = [node.pos[1] for node in path]
+            path_z = [node.pos[2] for node in path]
+
+            # 绘制路径
+            ax1.plot(path_x, path_y, path_z, 'r-', linewidth=2, label='Path')
+            ax1.scatter(path_x, path_y, path_z, c='r', s=50)
+
+            # 标记危险区域（路径高度接近地形高度）
+            for node in path:
+                x, y, z = node.pos
+                terrain_z = self.map[int(x), int(y)]
+                if z < terrain_z + self.safe_height:
+                    ax1.scatter([x], [y], [z], c='black', s=100, marker='x', linewidths=2)
+
+        # 标记起点和终点
+        ax1.scatter(*self.start, c='g', s=100, marker='*', label='Start')
+        ax1.scatter(*self.goal, c='b', s=100, marker='*', label='Goal')
+        ax1.set_title('3D Path Visualization')
+        ax1.legend()
+
+        # 高度剖面图
+        ax2 = fig.add_subplot(122)
+        if path:
+            # 计算路径距离
+            path_array = np.array([node.pos for node in path])
+            distances = np.cumsum(np.sqrt(np.sum(np.diff(path_array[:,:2], axis=0)**2, axis=1)))
+            distances = np.insert(distances, 0, 0)
+
+            # 获取地形高度（路径经过的点）
+            terrain_heights = [self.map[int(p[0]), int(p[1])] for p in path_array]
+
+            # 绘制高度对比
+            ax2.plot(distances, path_array[:,2], 'r-', label='Path Height', linewidth=2)
+            ax2.plot(distances, terrain_heights, 'b-', label='Terrain Height', linewidth=2)
+            ax2.fill_between(distances, terrain_heights, path_array[:,2],
+                            where=(path_array[:,2] > terrain_heights),
+                            color='green', alpha=0.3, label='Safe Area')
+            ax2.fill_between(distances, terrain_heights, path_array[:,2],
+                            where=(path_array[:,2] <= terrain_heights),
+                            color='red', alpha=0.3, label='Danger Area')
+
+            # 标记安全高度阈值线
+            ax2.plot(distances, np.array(terrain_heights)+self.safe_height,
+                    'g--', label='Safe Height Threshold')
+
+            ax2.set_xlabel('Path Distance (units)')
+            ax2.set_ylabel('Height (units)')
+            ax2.set_title('Path Height Profile')
+            ax2.legend()
+            ax2.grid(True)
+
+        plt.tight_layout()
+        plt.show()
+
     def search(self, visualize=False):
         start_node = self.Node(self.start)
         end_node   = self.Node(self.goal)
@@ -201,7 +266,7 @@ class Astar():
 
                 print("*****PATH ALREADY FOUND!!!*****")
                 if visualize:
-                    self.plot_path(path)
+                    self.plot_path_with_profile(path)
                 return path[::-1]
 
             # 放入闭集
