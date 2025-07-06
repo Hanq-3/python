@@ -68,7 +68,7 @@ class DEMGenerator:
         for desc in self.peak_desc:
             self.Z  += self.mountain(self.X, self.Y, desc[0], desc[1], desc[2], desc[3])
             # 添加一些随机噪声使地形更自然
-            self.Z += np.random.normal(7, 0.2, self.Z.shape)
+            self.Z += np.random.normal(8, 0.2, self.Z.shape)
         return self.Z
 
     def plt_DEM(self):
@@ -251,6 +251,10 @@ class Astar():
     def search(self, visualize=False):
         start_node = self.Node(self.start)
         end_node   = self.Node(self.goal)
+        if self.accessible(start_node) == False or self.accessible(end_node) == False:
+            print("*****NO PATH!!!*****")
+            print("accessable status: start:{},goal:{}!".format(self.accessible(start_node), self.accessible(end_node)))
+            return []
         start_node.cost = self.cost(start_node.pos)
 
         open_set  = PriorityQueue()
@@ -270,7 +274,7 @@ class Astar():
 
                 print("*****PATH ALREADY FOUND!!! setps={}*****".format(len(path)))
                 if visualize:
-                    self.plot_path_with_profile(path)
+                    self.plot_path_with_profile(path[::-1])
                 return path[::-1]
 
             # 放入闭集
@@ -280,6 +284,8 @@ class Astar():
                     continue
 
                 neighbor.cost = self.cost(neighbor.pos)
+                if cur_node.pos[2] - neighbor.pos[2] > 0: #惩罚往下跑的情况
+                    neighbor.cost = neighbor.cost * 1.1
                 neighbor.parent = cur_node
                 open_set.push(neighbor)  # 自动处理替换逻辑
 
@@ -294,9 +300,9 @@ if __name__ == "__main__":
                        (80, 80, 80, 15),
                        (80, 40, 60, 20))
     map = dem.gemDEM()
-    # dem.plt_DEM()
+    dem.plt_DEM()
 
-    astar = Astar(map, (20,0,50), (60,90,100), NORM_II_DIST)
+    astar = Astar(map, (20,0,100), (99,99,90), NORM_II_DIST)
 
     path = astar.search(True)
     # print(path)
