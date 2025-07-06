@@ -285,7 +285,7 @@ class Astar():
 
                 neighbor.cost = self.cost(neighbor.pos)
                 if cur_node.pos[2] - neighbor.pos[2] > 0: #惩罚往下跑的情况
-                    neighbor.cost = neighbor.cost * 1.1
+                    neighbor.cost = neighbor.cost * 1.05
                 neighbor.parent = cur_node
                 open_set.push(neighbor)  # 自动处理替换逻辑
 
@@ -300,9 +300,9 @@ if __name__ == "__main__":
                        (80, 80, 80, 15),
                        (80, 40, 60, 20))
     map = dem.gemDEM()
-    dem.plt_DEM()
+    # dem.plt_DEM()
 
-    astar = Astar(map, (20,0,100), (99,99,90), NORM_II_DIST)
+    astar = Astar(map, (20,0,80), (99,99,120), NORM_II_DIST)
 
     path = astar.search(True)
     # print(path)
